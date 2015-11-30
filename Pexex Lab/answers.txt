@@ -1,0 +1,32 @@
+Pexelab(Lab2) Answers
+By Haojie Chen
+-----------------------------------
+1.
+In the trace, each time the compiler gets a value from the memory, lisp.h shift the value two bits right to get the correct value of the argument. It seems like that Emacs function Ftimes only deals with Lisp_Objects, and Lisp integers are 62-bit integers. After all the values of original arguments are obtained, and arith_driver function does the multiplication, and the compiler gets the correct result stored in %rbp. But before returning, since Ftimes thinks it is dealing with Lisp_Object, it wants to recover it to C integer by left shifting it two bits; the compiler shifts the product two bits left, and stores the result in %rax:
+0x5436af<arith_driver+431>lisp.h:700      lea 0x0(,%rbp,4),%rax                 rax=0xce39231c6f4c71bc
+This messes up the correct product because the value is changed.
+Therefore, what is being returned is not the correct mathematical result.
+
+
+2.
+The number 2305843009213693951 is the largest representable fixnum values defined in lisp.h that Emacs can use. In lisp.h, we can find that it defines GCTYPEBITS=3, and INTTYPEBITS=GCTYPEBITS-1=2, and MOST_POSITIVE_FIXNUM = EMACS_INT_MAX >> INTTYPEBITS. Here, EMACS_INT_MAX is defined equal to INT_MAX(0x7fffffffffffffff), so when it shift two bits to the right, it becomes a 62-bit number, and has the value 2^61 -1. This is the largest Lisp integer. Thus, when doing "emacs -batch -eval '(print most-positive-fixnum)', 2305843009213693951 is printed out.
+
+
+3.
+As I have clarified in question 2, most-positive-fixnum is the largest representable Lisp integer. First I test on the 4-bit most positive number: 0111. Multiply 0111 by 0111, I get the result 100001. And since we are dealing with 4-bit number, the most significant two bits get truncated, so the result is one. I believe that the same rule applies on 62-bit number. When multiplying two largest positive 62-bit number together, we will also get 1. However, since Ftimes already identifies most-positive-fixnum as Lisp_Object type integer, it does not need to covert it (shifting two bits right) to get the correct argument value. Therefore, in the end after multiplication, it does not need to convert it back to C integer, the product is the correct value already as how it sees it. Therefore, by gettting rid of the lea instruction, it simply return the value of an Lisp_Object, which is 1.
+
+
+4.
+There would not be a huge problem. If Emacs executable had also been compiled with -fsanitize=undefined, when an overflow occurs due to some operation, this undefined behavior will just continue, but a diagnostic message is produced at runtime explaining the problem so that we are notified there is an overflow.
+
+
+5.
+If it is compiled with -fwrapv, the compiler assumes undefined behavior(overflow) and let the result wraps around if it needs to; we cannot tell if an overflow occurs without checking if the result is correct. And it is too hard for us to check on a result that is too large. So when overflow occurs, we might just get a wrong answer without knowing that it is wrong.
+
+
+6.
+If the compiler assumes wrap semantic(-fwrapv), when doing integer multiplication, we do not need to check for overflow. The buil-in instructions checking overflow can be thrown away to improve performance.
+
+
+7.
+If -fwrapv is used and the extra instructions checking overflow are taken out, Emacs will spending a lot less time when doing any operations that could cause overflow(multiplication, addtion, etc...), and just focusing on the basic operations to get the results. The efficiency will be significantly improved.

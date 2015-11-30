@@ -1,0 +1,57 @@
+Lab2 pexex
+By Haojie Chen
+------------------------------------------------
+
+Part I
+
+Run this command to use gdb to debug:
+$gdb --args ~eggert/bin64/bin/emacs-24.5 -batch -eval '(print (* 6997 -4398042316799 179))'
+
+Print each instruction as it is executed:
+(gdb)  set disassemble-next-line on
+
+Set a break point at Ftimes function:
+(gdb) break Ftimes
+
+Run the program:
+(gdb) r
+
+When it stops at Ftimes, execute the next instruction. Since we also want to go into the
+other functions that Ftimes calls, we use stepi (also si):
+(gdb) si
+
+Everytime when on instruction is executed, gdb will show the corresponding line number in
+C source code, the machine address of the instruction, an offset from the current function.
+And we can check the basename of the source code by opening the souce code:
+$emacs ~eggert/src/emacs-24.5/src/data.c
+
+After one instruction is executed, we can get the value in related modified  memory using:
+(gdb) x/2xw memoryaddress
+
+We can also check the values in registers using:
+(gdb) info registers
+This will print out all the registers' status.
+
+If we want to look into a specific register, using:
+(gdb) info registers $registername
+
+
+
+------------------------------------------
+Part II
+
+First, I create a .c file and paste the function into it:
+$emacs testovf.c
+
+Then, I compile it in three ways with -c flag to generate three different testovf.o object files:
+Only with -O2:
+$gcc -c -O2 -fno-asynchronous-unwind-tables testovf.c
+
+With -O2 and -fsanitize=undefined:
+$gcc -c -O2 -fsanitize=undefined testovf.c
+
+With -O2 and -fwrapv:
+$gcc -S -O2 -fwrapv testovf.c
+
+After this, I use object dump to check them (check the assembly code):
+objdump -d testovf.o
